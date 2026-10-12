@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><link rel="stylesheet" href="popup.css"><title>SubEcho · 字幕回声</title></head>
+<body>
+<header><span class="badge">SubEcho · 字幕回声</span><h1>让字幕开口说话</h1><p>先在 YouTube 中开启中文字幕</p></header>
+<form id="settings">
+<label>MiMo API Key<input id="apiKey" type="password" autocomplete="off" placeholder="填写你的 API Key" required></label>
+<div class="row"><label>配音音色<select id="voice"><option>冰糖</option><option>茉莉</option><option>苏打</option><option>白桦</option></select></label><label>配音语速<select id="rate"><option value="1">1.0 ×</option><option value="1.15">1.15 ×</option><option value="1.3">1.3 ×</option><option value="1.5">1.5 ×</option></select></label></div>
+<label>原视频音量 <output id="volumeValue">15%</output><input id="originalVolume" type="range" min="0" max="100" value="15"></label>
+<label class="consent"><input id="consent" type="checkbox"> 我同意开启配音时将字幕发送至小米 MiMo，使用我提供的 Key 调用服务。</label>
+<button type="submit" class="secondary">保存设置</button>
+</form>
+<button id="toggle">开始配音</button>
+<button id="deleteKey" class="text-button">删除已保存的 Key</button>
+<p id="status" role="status">正在连接视频…</p>
+<footer>Key 仅保存在扩展本地。开启配音后，字幕会发送给小米 MiMo。此版本朗读现有字幕，不单独翻译。<a href="privacy.html" target="_blank">隐私政策</a></footer>
+<script src="popup.js"></script></body></html>

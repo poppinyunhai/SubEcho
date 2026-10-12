@@ -1,0 +1,40 @@
+# 隐私政策 / Privacy Policy
+
+更新日期：2026-10-12。适用于 SubEcho · 字幕回声扩展 0.2.1。
+
+## 功能和数据使用
+
+扩展的单一用途是将 YouTube 当前显示的字幕转换为语音。只有用户主动开启配音，并同意发送字幕后，扩展才会调用小米 MiMo。
+
+- **字幕文本**：从当前 YouTube 视频页面读取，发送到 `https://api.xiaomimimo.com/v1/chat/completions` 用于语音合成。运行中暂存在内存，不保存字幕记录。
+- **MiMo API Key**：用户自行填写，保存在当前 Chrome 扩展的本地存储中，不通过 Chrome Sync 同步。Key 作为 HTTPS 请求认证信息直接发送给小米 MiMo，不发送给扩展作者。网页内容脚本不能直接读取此 Key。Key 不进行额外加密，不应把本地存储视为密码保险库。
+- **配音设置及同意状态**：音色、语速、原视频音量和发送字幕的同意状态保存在扩展本地存储中。
+- **视频播放状态和当前页面地址**：在本地用于识别视频切换、暂停、跳转和广告，扩展不主动将视频地址、标题或播放历史发送至 MiMo 或扩展作者。
+- **生成音频**：从 MiMo 返回，在运行时内存中暂存并播放，不保存为音频历史记录。
+
+字幕本身可能含有个人信息或视频中读出的链接。除字幕文本外，扩展请求还包含模型、音色和固定的朗读指令。MiMo 作为网络服务方也能获得正常网络连接所需的信息，例如 IP 地址。
+
+## 第三方服务
+
+小米 MiMo 接收字幕及请求认证信息来完成语音合成。第三方的数据处理、保留和服务条款由该服务方的政策约束；本扩展不承诺其零保留。请查看 [小米 MiMo 官方网站](https://mimo.mi.com/) 中的隐私政策与服务条款。
+
+扩展作者不运营接收用户数据的后端，不安装分析、广告或追踪 SDK，不出售数据，不用于广告或信用评估，不通过扩展进行人工审阅。
+
+## 用户控制
+
+- 点击「停止配音」后停止发送新字幕，并取消该页面正在进行的语音请求。已发送给第三方的数据无法通过本地停止操作撤回。
+- 可以在弹窗取消同意，保存设置。下一次请求会停止并提示需要同意。
+- 点击「删除已保存的 Key」删除本地 API Key 和同意状态；该操作停止当前页面配音。其他已开启配音的页面请同时停止，或在 MiMo 平台撤销 Key。
+- 卸载扩展会清除扩展本地存储。若需要撤销 Key，请在 MiMo 平台操作。
+
+## Limited Use
+
+本扩展使用用户数据仅为用户主动请求的字幕语音播放功能服务，并遵守 Chrome Web Store User Data Policy，包括 Limited Use 要求。不为与该功能无关的目的使用或转移数据。
+
+This extension uses user data solely to provide user-requested subtitle speech playback. Its use of user data complies with the Chrome Web Store User Data Policy, including the Limited Use requirements. The developer does not sell user data or use it for advertising.
+
+## 联系和更新
+
+请通过发布本扩展的 GitHub 仓库 Issues 或 Chrome 商店支持页面联系维护者。政策发生变化时，将随版本更新本文件和扩展内隐私政策页。
+
+本扩展为独立项目，与 YouTube、Google、小米无官方关联。
