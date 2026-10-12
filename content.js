@@ -5,7 +5,7 @@
   let observed = '', accepted = '', changedAt = 0, firstChangeAt = 0;
   let pending = '', pendingAt = 0, emptyAt = 0, ignoreUntil = 0;
   let route = '', ad = false, lastError = '', statusText = '配音未开启';
-  let retryAt = 0;
+  let retryAt = 0, mode = 'direct', history = [];
   const button = document.createElement('button');
   button.textContent = '点击启用配音声音';
   Object.assign(button.style, {
@@ -27,7 +27,9 @@
   Object.assign(stop.style, { marginLeft: '12px', border: '0', borderRadius: '5px',
     padding: '3px 8px', background: '#253247', color: '#8cd6c1', cursor: 'pointer' });
   stop.addEventListener('click', () => { void toggle(false); });
-  panel.append(label, stop);
+  const subtitles = document.createElement('div');
+  Object.assign(subtitles.style, { marginTop: '8px', fontSize: '12px', maxHeight: '160px', overflow: 'auto', whiteSpace: 'pre-wrap', display: 'none' });
+  panel.append(label, stop, subtitles);
   document.documentElement.append(panel);
   const state = () => ({ enabled, status: statusText });
   const setStatus = text => {
@@ -37,6 +39,7 @@
   };
   async function settings() {
     const data = await chrome.runtime.sendMessage({ type: 'playback-settings' });
+    mode = data?.mode === 'translate' ? 'translate' : 'direct';
     rate = Math.min(1.5, Math.max(1, Number(data?.rate) || 1.15));
     originalVolume = Math.min(1, Math.max(0, Number(data?.originalVolume) || 0));
     if (enabled && video) video.volume = originalVolume;
@@ -52,6 +55,7 @@
   }
   function clearCaptions() {
     observed = accepted = pending = '';
+    history = []; subtitles.textContent = ''; subtitles.style.display = 'none';
     changedAt = firstChangeAt = pendingAt = emptyAt = 0;
   }
   function reset() { clearAudio(); clearCaptions(); retryAt = 0; ignoreUntil = performance.now() + 500; }
@@ -101,13 +105,15 @@
     if (!delta) return;
     pending = MimoCore.normalize(`${pending} ${delta}`);
     pendingAt ||= now;
-    if (/[。！？.!?]$/.test(pending) || pending.length >= 90) flush();
+    if (/[。！？.!?]$/.test(pending) || pending.length >= (mode === 'translate' ? 220 : 90)) flush();
   }
   function flush() {
     if (!pending) return;
     // Bound the queue: prefer recent subtitles over an ever-growing delay.
     for (let start = 0; start < pending.length; start += 300) {
-      queue.push({ text: pending.slice(start, start + 300), time: video.currentTime });
+      const text = pending.slice(start, start + 300);
+      queue.push({ text, time: video.currentTime, context: history.slice(-4) });
+      history.push(text); history = history.slice(-4);
     }
     pending = ''; pendingAt = 0;
     if (queue.length > 3) queue = queue.slice(-3);
@@ -160,13 +166,19 @@
     if (!item) return;
     busy = true; streamDone = false; oddByte = null;
     const generation = epoch;
-    setStatus('MiMo 正在合成语音…');
+    setStatus(mode === 'translate' ? '正在翻译英文字幕…' : 'MiMo 正在合成语音…');
     const connection = chrome.runtime.connect({ name: 'mimo-tts' }); port = connection;
     let completed = false;
     connection.onMessage.addListener(message => {
       if (epoch !== generation) return;
       if (message.type === 'audio') {
         try { audioChunk(message.data); } catch { fail('音频解码失败，请停止后重试'); }
+      } else if (message.type === 'translating') {
+        setStatus('正在翻译英文字幕…');
+      } else if (message.type === 'translated') {
+        subtitles.textContent = `${message.original}\n${message.translation}`;
+        subtitles.style.display = 'block';
+        setStatus('翻译完成，正在生成中文配音…');
       } else if (message.type === 'done') {
         completed = true; streamDone = true; port = null; connection.disconnect(); finish();
       } else if (message.type === 'retry') {
@@ -176,7 +188,7 @@
     connection.onDisconnect.addListener(() => {
       if (epoch === generation && !completed) fail('配音连接中断', true);
     });
-    connection.postMessage({ type: 'synthesize', text: item.text });
+    connection.postMessage({ type: 'synthesize', text: item.text, context: item.context });
   }
   async function toggle(value) {
     if (!value) {
@@ -189,7 +201,7 @@
     await settings();
     enabled = true; lastError = ''; reset();
     savedVolume = video.volume; video.volume = originalVolume;
-    setStatus('已开启，请播放视频并打开中文字幕');
+    setStatus(mode === 'translate' ? '已开启，请选择英文字幕并播放视频' : '已开启，请播放视频并打开中文字幕');
     void resume(); return state();
   }
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
@@ -228,9 +240,9 @@
     if (!text) {
       emptyAt ||= now;
       if (now - emptyAt >= 1000) accepted = '';
-      if (!busy && !pending && !queue.length && !retryAt) setStatus('等待字幕，请确认 YouTube 已开启中文字幕');
+      if (!busy && !pending && !queue.length && !retryAt) setStatus(mode === 'translate' ? '等待字幕，请开启 YouTube 英文字幕' : '等待字幕，请确认 YouTube 已开启中文字幕');
     } else emptyAt = 0;
-    if (pending && now - pendingAt >= 1000) flush();
+    if (pending && now - pendingAt >= (mode === 'translate' ? 1800 : 1000)) flush();
     pump();
   }, 200);
   window.addEventListener('pagehide', () => { enabled = false; clearAudio(); void context?.close(); });

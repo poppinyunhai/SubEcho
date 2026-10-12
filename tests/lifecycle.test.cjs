@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-function harness() {
+function harness(mode = 'direct') {
   const events = {}, listeners = [], connections = [];
   let tick, text = '', time = 0;
   const button = { style: {}, append() {}, addEventListener() {} };
@@ -22,7 +22,7 @@ function harness() {
       querySelector: selector => selector.includes('video') ? video : selector.includes('caption') ? container : null },
     chrome: { runtime: {
       onMessage: { addListener(fn) { listeners.push(fn); } },
-      async sendMessage() { return { rate: 1.15, originalVolume: .15 }; },
+      async sendMessage() { return { rate: 1.15, originalVolume: .15, mode }; },
       connect() { const p = { messages: [], disconnected: false,
         onMessage: { addListener(fn) { p.receive = fn; } },
         onDisconnect: { addListener(fn) { p.onClose = fn; } },
@@ -83,4 +83,19 @@ test('credential failure requires a settings correction rather than endless retr
   h.tick(20000, '第二句。'); h.tick(20500);
   assert.equal(h.connections.length, 1);
   assert.equal((await h.message({ type: 'state' })).status, 'API Key 无效');
+});
+
+test('translation receives prior caption context and ignores results after a seek', async () => {
+  const h = harness('translate'); h.tick(0);
+  await h.message({ type: 'toggle', enabled: true }); await Promise.resolve();
+  h.tick(600, 'We use a cache.'); h.tick(1000);
+  h.connections[0].receive({ type: 'translated', original: 'We use a cache.', translation: '我们使用缓存。' });
+  h.connections[0].receive({ type: 'done' });
+  h.tick(1400, 'It is fast.'); h.tick(1800);
+  assert.deepEqual(Array.from(h.connections[1].messages[0].context), ['We use a cache.']);
+  h.video.seeking = true; h.events.seeking();
+  assert.equal(h.connections[1].disconnected, true);
+  const before = (await h.message({ type: 'state' })).status;
+  h.connections[1].receive({ type: 'translated', original: 'It is fast.', translation: '它很快。' });
+  assert.equal((await h.message({ type: 'state' })).status, before);
 });

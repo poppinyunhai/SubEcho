@@ -1,4 +1,4 @@
-importScripts('core.js');
+importScripts('core.js', 'translation.js');
 
 // Keep credentials in trusted extension contexts, never the YouTube page.
 const storageReady = chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
@@ -15,11 +15,20 @@ chrome.runtime.onConnect.addListener(port => {
     let audioSent = false;
     try {
       await storageReady;
-      const text = typeof message.text === 'string' ? message.text.trim() : '';
+      let text = typeof message.text === 'string' ? message.text.trim() : '';
       if (!text || text.length > 500) throw new Error('字幕长度无效');
-      const { apiKey, voice = '冰糖', consent = false } = await chrome.storage.local.get(['apiKey', 'voice', 'consent']);
+      const { apiKey, voice = '冰糖', consent = false, mode = 'direct', translationModel = 'mimo-v2.6-flash', translationConsent = false } = await chrome.storage.local.get(['apiKey', 'voice', 'consent', 'mode', 'translationModel', 'translationConsent']);
       if (!apiKey) throw new Error('请先在插件中填写 MiMo API Key');
       if (!consent) throw new Error('请在插件中同意将字幕发送给 MiMo');
+      if (mode === 'translate') {
+        if (!translationConsent) throw new Error('请先同意将字幕及上下文发送给翻译模型');
+        send({ type: 'translating' });
+        const original = text;
+        text = await MimoTranslation.translate({ text, context: message.context, apiKey,
+          model: translationModel, signal: controller.signal, send });
+        if (controller.signal.aborted) return;
+        send({ type: 'translated', original, translation: text });
+      }
       const voices = ['冰糖', '茉莉', '苏打', '白桦', 'mimo_default'];
       const body = JSON.stringify({ model: 'mimo-v2.5-tts', stream: true,
         messages: [
@@ -87,13 +96,15 @@ chrome.runtime.onConnect.addListener(port => {
           if (controller.signal.aborted) cancel();
         });
       }
-    } catch (error) { send({ type: 'error', message: error.message, recoverable: false }); }
+    } catch (error) {
+      if (!controller.signal.aborted) send({ type: 'error', message: error.name === 'AbortError' ? '翻译请求超时' : error instanceof TypeError ? '翻译网络连接失败' : error.message, recoverable: error.recoverable === true });
+    }
   });
 });
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message.type !== 'playback-settings' || !sender.tab ||
       !sender.url?.startsWith('https://www.youtube.com/')) return;
-  storageReady.then(() => chrome.storage.local.get({ rate: 1.15, originalVolume: .15 })).then(respond);
+  storageReady.then(() => chrome.storage.local.get({ rate: 1.15, originalVolume: .15, mode: 'direct' })).then(respond);
   return true;
 });
