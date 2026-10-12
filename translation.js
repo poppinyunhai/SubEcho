@@ -25,7 +25,7 @@
             stream: false, thinking: { type: 'disabled' }, temperature: .2, max_completion_tokens: 1024 })
         });
         if (!response.ok) {
-          const error = new Error(response.status === 401 ? '翻译 API Key 无效' : response.status === 403 ? '没有翻译模型访问权限' : `翻译请求失败（${response.status}）`);
+          const error = new Error(response.status === 401 ? '翻译 API Key 无效' : response.status === 402 ? 'MiMo 翻译账户余额不足（402），请检查按量账户余额' : response.status === 403 ? '没有翻译模型访问权限' : `翻译请求失败（${response.status}）`);
           error.recoverable = [408, 429, 500, 502, 503, 504].includes(response.status);
           delay = MimoCore.retryDelay(attempt, response.headers.get('Retry-After'));
           await response.body?.cancel(); throw error;

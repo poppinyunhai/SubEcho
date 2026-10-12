@@ -66,7 +66,7 @@ npm test
 npm run package
 ```
 
-The output is `dist/subecho-0.3.0.zip`. The archive contains only runtime files, the privacy page, and icons. GitHub Actions runs checks and produces a ZIP artifact.
+The output is `dist/subecho-0.3.1.zip`. The archive contains only runtime files, the privacy page, and icons. GitHub Actions runs checks and produces a ZIP artifact.
 
 Tests cover caption increments, SSE chunks, PCM conversion, retry boundaries, consent, pause behavior, seek cancellation, and volume restoration. Audio quality, actual latency, and YouTube compatibility require manual testing.
 

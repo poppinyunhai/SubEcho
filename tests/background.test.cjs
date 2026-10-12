@@ -119,3 +119,16 @@ test('cancelling during translation prevents late translated text and TTS reques
   assert.equal(calls, 1);
   assert.equal(messages.some(m => m.type === 'translated' || m.type === 'audio'), false);
 });
+test('402 identifies the failing stage and is not retried', async () => {
+  for (const mode of ['direct', 'translate']) {
+    let calls = 0;
+    const messages = await run(async () => {
+      calls++;
+      return { ok: false, status: 402, headers: { get: () => null }, body: { async cancel() {} } };
+    }, true, { mode, translationConsent: true });
+    assert.equal(calls, 1);
+    assert.equal(messages.at(-1).recoverable, false);
+    assert.match(messages.at(-1).message, /余额不足/);
+    assert.match(messages.at(-1).message, mode === 'direct' ? /配音/ : /翻译/);
+  }
+});

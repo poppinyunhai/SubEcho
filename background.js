@@ -50,7 +50,7 @@ chrome.runtime.onConnect.addListener(port => {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, body
           });
           if (!response.ok) {
-            const reasons = { 401: 'API Key 无效，请修改设置', 403: '没有模型访问权限', 429: 'MiMo 请求限流' };
+            const reasons = { 401: 'API Key 无效，请修改设置', 402: 'MiMo 配音账户余额不足（402），请检查按量账户余额', 403: '没有模型访问权限', 429: 'MiMo 请求限流' };
             const error = new Error(reasons[response.status] || `MiMo 请求失败（${response.status}）`);
             error.recoverable = [408, 429, 500, 502, 503, 504].includes(response.status);
             retryMs = MimoCore.retryDelay(attempt, response.headers.get('Retry-After'));

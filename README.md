@@ -106,6 +106,9 @@ YouTube 当前字幕
 **更新后没有变化？**  
 在 `chrome://extensions` 点击 SubEcho 的重新加载按钮，再刷新 YouTube 页面。
 
+**请求失败 402？**  
+MiMo 官方定义为账户余额不足。当前扩展使用按量 API，请在 MiMo 控制台检查对应账户余额。Token Plan 订阅 Key 与按量 Key、接口不能混用。余额问题解决后停止再开启配音。
+
 **API Key 无效或没有模型权限？**  
 修正 Key 或账号权限后保存设置。认证错误不会自动重复请求；临时网络错误会自动恢复。
 
@@ -119,7 +122,7 @@ npm test           # 自动化测试
 npm run package    # 生成 Chrome 扩展 ZIP
 ```
 
-安装包输出为 `dist/subecho-0.3.0.zip`，只包含运行文件、隐私政策页和图标。GitHub Actions 会自动执行检查、测试及打包。
+安装包输出为 `dist/subecho-0.3.1.zip`，只包含运行文件、隐私政策页和图标。GitHub Actions 会自动执行检查、测试及打包。
 
 ```text
 background.js      MiMo 请求、流式解析和重试
