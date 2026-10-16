@@ -5,6 +5,7 @@
   let observed = '', accepted = '', changedAt = 0, firstChangeAt = 0;
   let pending = '', pendingAt = 0, emptyAt = 0, ignoreUntil = 0;
   let route = '', ad = false, lastError = '', statusText = '配音未开启';
+  let configuringCaptions = false;
   let retryAt = 0, mode = 'direct', history = [];
   const button = document.createElement('button');
   button.textContent = '点击启用配音声音';
@@ -157,7 +158,7 @@
     } else { lastError = message; setStatus(message); }
   }
   function pump() {
-    if (!enabled || busy || !video || video.paused || video.seeking || ad || lastError || performance.now() < retryAt) return;
+    if (!enabled || busy || !video || video.paused || video.seeking || ad || configuringCaptions || lastError || performance.now() < retryAt) return;
     if (!context || context.state !== 'running') {
       button.style.display = 'block'; setStatus('请点击页面上的按钮启用声音'); return;
     }
@@ -205,6 +206,17 @@
     void resume(); return state();
   }
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message.type === 'configure-captions') {
+      if (configuringCaptions) { respond({ ok: false, message: '正在设置字幕，请稍候' }); return; }
+      configuringCaptions = true; reset(); suspend();
+      setStatus('正在设置 YouTube 字幕…');
+      let captionResult = '字幕设置未完成';
+      YouTubeCaptions.configure(message.language)
+        .then(result => { captionResult = result.message; respond(result); })
+        .catch(error => { captionResult = error.message; respond({ ok: false, message: error.message }); })
+        .finally(() => { configuringCaptions = false; reset(); if (enabled) { setStatus(captionResult); void resume(); } });
+      return true;
+    }
     if (message.type === 'state') { respond(state()); return; }
     if (message.type === 'toggle') {
       toggle(Boolean(message.enabled)).then(respond).catch(error => respond({ ...state(), status: error.message }));
@@ -222,7 +234,7 @@
     bindVideo(document.querySelector('video.html5-main-video'));
     const isAd = Boolean(document.querySelector('#movie_player.ad-showing'));
     if (ad !== isAd) { ad = isAd; reset(); if (ad) suspend(); else void resume(); }
-    if (!enabled || !video || video.paused || video.seeking || ad || lastError) return;
+    if (!enabled || !video || video.paused || video.seeking || ad || configuringCaptions || lastError) return;
     const now = performance.now();
     if (now < ignoreUntil) return;
     if (retryAt && now >= retryAt) { retryAt = 0; setStatus('正在恢复连接，等待字幕'); }

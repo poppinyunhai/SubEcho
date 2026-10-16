@@ -12,7 +12,7 @@ npm test
 npm run package
 ```
 
-ZIP 位于 `dist/subecho-0.3.1.zip`，只包含扩展运行文件及图标，不包含测试、文档、CI 或任何个人配置。CI 会自动运行检查并产出 ZIP。
+ZIP 位于 `dist/subecho-0.3.2.zip`，只包含扩展运行文件及图标，不包含测试、文档、CI 或任何个人配置。CI 会自动运行检查并产出 ZIP。
 
 ## Chrome Web Store
 

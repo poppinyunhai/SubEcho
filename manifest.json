@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SubEcho · 字幕回声",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "用小米 MiMo 流式朗读 YouTube 当前显示的字幕。",
   "permissions": [
     "storage",
@@ -28,6 +28,7 @@
       ],
       "js": [
         "core.js",
+        "captions.js",
         "content.js"
       ],
       "run_at": "document_idle"

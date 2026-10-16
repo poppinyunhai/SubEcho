@@ -13,6 +13,8 @@ For Chinese narration of English videos, select English captions and enable AI t
 
 ## Features
 
+- One-click caption setup: enable Chinese captions (prefer a native track, otherwise use YouTube auto-translation), or select English captions for AI translation. Supports Chinese and English YouTube menus.
+
 - Optional English-to-Chinese AI translation using the same MiMo key, with four prior caption segments as context and on-page bilingual text.
 
 - Streaming speech with a relaxed, conversational narration style.
@@ -66,7 +68,7 @@ npm test
 npm run package
 ```
 
-The output is `dist/subecho-0.3.1.zip`. The archive contains only runtime files, the privacy page, and icons. GitHub Actions runs checks and produces a ZIP artifact.
+The output is `dist/subecho-0.3.2.zip`. The archive contains only runtime files, the privacy page, and icons. GitHub Actions runs checks and produces a ZIP artifact.
 
 Tests cover caption increments, SSE chunks, PCM conversion, retry boundaries, consent, pause behavior, seek cancellation, and volume restoration. Audio quality, actual latency, and YouTube compatibility require manual testing.
 

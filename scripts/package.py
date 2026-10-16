@@ -5,7 +5,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 root = Path(__file__).resolve().parent.parent
 manifest = json.loads((root / 'manifest.json').read_text())
-files = ['manifest.json', 'background.js', 'translation.js', 'core.js', 'content.js',
+files = ['manifest.json', 'background.js', 'translation.js', 'core.js', 'captions.js', 'content.js',
          'popup.html', 'popup.css', 'popup.js', 'privacy.html']
 files += sorted(set(manifest['icons'].values()))
 out = root / 'dist' / f'subecho-{manifest["version"]}.zip'

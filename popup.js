@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
-let tabId, enabled = false;
-const status = text => { $('status').textContent = text; };
+let tabId, enabled = false, configuringCaptions = false, statusUntil = 0;
+const status = (text, hold = 0) => { $('status').textContent = text; statusUntil = Date.now() + hold; };
 async function save() {
   const apiKey = $('apiKey').value.trim();
   if (!apiKey) throw new Error('请填写 MiMo API Key');
@@ -15,7 +15,7 @@ async function query(message) {
 function render(state) {
   enabled = state.enabled;
   $('toggle').textContent = enabled ? '停止配音' : '开始配音';
-  status(state.status);
+  if (Date.now() >= statusUntil) status(state.status);
 }
 $('originalVolume').addEventListener('input', () => {
   $('volumeValue').textContent = `${$('originalVolume').value}%`;
@@ -48,6 +48,7 @@ $('toggle').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.url?.startsWith('https://www.youtube.com/')) tabId = tab.id;
   $('toggle').disabled = !tabId;
+  $('chineseCaptions').disabled = !tabId; $('englishCaptions').disabled = !tabId;
   try { render(await query({ type: 'state' })); }
   catch (error) { status(error.message); }
 })();
@@ -61,8 +62,31 @@ $('deleteKey').addEventListener('click', async () => {
   } catch (error) { status(error.message); }
 });
 setInterval(async () => {
-  if (!tabId || $('toggle').disabled) return;
+  if (!tabId || configuringCaptions || $('toggle').disabled) return;
   try { render(await query({ type: 'state' })); } catch {}
 }, 1000);
 
 $('mode').addEventListener('change', () => { $('translationSettings').hidden = $('mode').value !== 'translate'; });
+
+async function configureCaptions(language) {
+  if (configuringCaptions) return;
+  configuringCaptions = true;
+  $('chineseCaptions').disabled = $('englishCaptions').disabled = $('toggle').disabled = true;
+  status('正在设置 YouTube 字幕…');
+  try {
+    const result = await query({ type: 'configure-captions', language });
+    if (!result.ok) throw new Error(result.message);
+    const mode = language === 'zh' ? 'direct' : 'translate';
+    await chrome.storage.local.set({ mode });
+    $('mode').value = mode;
+    $('translationSettings').hidden = mode !== 'translate';
+    await query({ type: 'settings' });
+    status(result.message, 10000);
+  } catch (error) { status(error.message, 10000); }
+  finally {
+    configuringCaptions = false;
+    $('chineseCaptions').disabled = $('englishCaptions').disabled = $('toggle').disabled = !tabId;
+  }
+}
+$('chineseCaptions').addEventListener('click', () => { void configureCaptions('zh'); });
+$('englishCaptions').addEventListener('click', () => { void configureCaptions('en'); });
