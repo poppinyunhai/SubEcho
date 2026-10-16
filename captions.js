@@ -1,9 +1,10 @@
-/* Operates YouTube's visible player menus; no private API or extra permissions. */
+/* Configure YouTube's own caption menus without changing subtitle rendering. */
 (() => {
-  const compact = value => value.replace(/[\s\u200b]+/g, '').toLowerCase();
-  const autoTranslate = value => /^(auto-translate|自动翻译|自動翻譯)$/i.test(value.trim());
-  const simplified = value => /^(chinese\s*\(simplified\)|中文[（(]简体[）)]|中文[（(]簡體[）)]|简体中文|簡體中文)(?:\s*[-—].*)?$/i.test(value.trim());
-  const english = value => /^(english|英语|英語)(?:\s*[（(].*[）)])?$/i.test(value.trim());
+  const compact = value => value.normalize('NFKC').replace(/[\s\u200b]+/g, '').toLowerCase();
+  const autoTranslate = value => /^(auto-translate|自动翻译|自動翻譯)$/.test(compact(value));
+  const simplified = value => /^(chinese\(simplified\)|中文\(简体\)|中文\(簡體\)|简体中文|簡體中文)(?:\(.*\))?$/.test(compact(value));
+  const english = value => !/[>»→]/.test(value) && /^(english|英语|英語)(?:\(.*\))?$/.test(compact(value));
+  const captionLabel = value => /^(subtitles(?:\/cc)?|captions|字幕(?:\/cc)?|字幕設定)(?:\(\d+\))?$/.test(compact(value));
   let running = false;
   async function configure(language) {
     if (running) throw new Error('正在设置字幕，请稍候');
@@ -11,52 +12,63 @@
     const player = document.querySelector('#movie_player');
     const settings = player?.querySelector('.ytp-settings-button');
     const captions = player?.querySelector('.ytp-subtitles-button');
-    if (!settings || !captions || captions.disabled || captions.getAttribute('aria-disabled') === 'true') {
-      throw new Error('当前视频未提供可用字幕，或播放器尚未加载');
-    }
+    if (!settings || !captions || captions.disabled || captions.getAttribute('aria-disabled') === 'true') throw new Error('当前视频未提供可用字幕，或播放器尚未加载');
     const page = location.href;
     const guard = () => { if (location.href !== page || !player.isConnected) throw new Error('视频已切换，请重新点击'); };
     const visible = node => node && node.getClientRects().length && node.getAttribute('aria-hidden') !== 'true';
     const items = () => [...player.querySelectorAll('.ytp-settings-menu .ytp-menuitem')].filter(visible);
     const label = node => (node.querySelector('.ytp-menuitem-label')?.textContent || node.textContent || '').trim();
+    const captionRow = () => items().find(item => captionLabel(label(item)));
+    const summary = row => row?.querySelector('.ytp-menuitem-content')?.textContent || '';
+    const choose = node => { guard(); node.scrollIntoView({ block: 'nearest' }); node.click(); };
+    const isOpen = () => settings.getAttribute('aria-expanded') === 'true' || visible(player.querySelector('.ytp-settings-menu'));
+    const close = () => { if (isOpen()) settings.click(); };
+    const pause = () => new Promise(resolve => setTimeout(resolve, 100));
     async function wait(read, error) {
-      for (let i = 0; i < 40; i++) {
-        guard(); const result = read(); if (result) return result;
-        await new Promise(resolve => setTimeout(resolve, 75));
-      }
+      for (let i = 0; i < 40; i++) { guard(); const value = read(); if (value) return value; await pause(); }
       throw new Error(error);
     }
-    const choose = node => { guard(); node.scrollIntoView({ block: 'nearest' }); node.click(); };
-    const close = () => { if (settings.getAttribute('aria-expanded') === 'true') settings.click(); };
+    async function root() {
+      guard();
+      if (!isOpen()) settings.click();
+      // YouTube can retain the last submenu when reopened. Walk back explicitly.
+      for (let i = 0; i < 40; i++) {
+        guard(); const row = captionRow(); if (row) return row;
+        const back = player.querySelector('.ytp-settings-menu .ytp-panel-back-button');
+        if (visible(back)) choose(back);
+        await pause();
+      }
+      throw new Error('找不到字幕设置入口，请确认 YouTube 界面为中文或英文');
+    }
+    async function tracks() { choose(await root()); await wait(() => items().some(item => english(label(item)) || autoTranslate(label(item))), '没有找到英文字幕或自动翻译选项'); }
+    const translatedChinese = text => /(?:>>|»|→)/.test(text) && /简体|簡體|chinese\s*\(simplified\)/i.test(text) && /english|英语|英語/i.test(text);
     running = true;
     try {
-      // Open from the root even if the user left a submenu open.
-      close();
       if (captions.getAttribute('aria-pressed') !== 'true') captions.click();
       await wait(() => captions.getAttribute('aria-pressed') === 'true', '字幕未能开启，请确认视频有字幕');
-      settings.click();
-      const row = await wait(() => items().find(item => /^(subtitles(?:\/cc)?|captions|字幕(?:\/cc)?|字幕設定)$/i.test(compact(label(item)))), '找不到字幕菜单；目前支持中文或英文的 YouTube 界面');
-      choose(row);
-      const direct = await wait(() => {
-        const list = items();
-        if (language === 'en') return list.find(item => english(label(item)));
-        return list.find(item => simplified(label(item))) || list.find(item => autoTranslate(label(item)));
-      }, language === 'en' ? '当前视频没有可选的英文字幕' : '当前视频没有简体中文字幕，也未提供自动翻译');
-      if (language === 'en' || !autoTranslate(label(direct))) {
-        choose(direct);
-      } else {
-        choose(direct);
-        const chinese = await wait(() => items().find(item => simplified(label(item))), '自动翻译菜单中未找到简体中文');
-        choose(chinese);
+      let row = await root();
+      const already = summary(row);
+      if (!(language === 'zh' && translatedChinese(already)) && !(language === 'en' && english(already))) {
+        await tracks();
+        const source = await wait(() => {
+          const candidates = items().filter(item => english(label(item)));
+          return candidates.find(item => /auto.generated|自动生成|自動產生|自動生成/i.test(label(item))) || candidates[0];
+        }, '当前视频没有英文字幕，无法设置英语字幕自动翻译');
+        choose(source);
+        if (language === 'zh') {
+          // Selecting the source track first makes Auto-translate available.
+          await tracks();
+          const auto = await wait(() => items().find(item => autoTranslate(label(item))), '当前英文字幕未提供 YouTube 自动翻译');
+          choose(auto);
+          const chinese = await wait(() => items().find(item => simplified(label(item))), '自动翻译菜单中未找到中文（简体）');
+          choose(chinese);
+        }
       }
-      // Verify the setting in the player, instead of reporting success after a click.
-      close(); settings.click();
-      const selected = await wait(() => {
-        const current = items().find(item => /^(subtitles(?:\/cc)?|captions|字幕(?:\/cc)?|字幕設定)$/i.test(compact(label(item))));
-        const text = current?.querySelector('.ytp-menuitem-content')?.textContent || '';
-        return language === 'zh' ? /简体|簡體|chinese\s*\(simplified\)/i.test(text) : /english|英语|英語/i.test(text);
-      }, '字幕选择未能确认，请检查播放器字幕设置');
-      return { ok: Boolean(selected), message: language === 'zh' ? '已开启简体中文字幕，可直接朗读' : '已开启英文字幕，可使用 AI 中文翻译配音' };
+      await pause();
+      row = await root();
+      const selected = summary(row);
+      if (language === 'zh' ? !translatedChinese(selected) : !english(selected)) throw new Error(`未能确认字幕设置${selected ? `：${selected}` : ''}，请重试`);
+      return { ok: true, message: language === 'zh' ? '已开启 YouTube 英语 → 中文（简体）自动翻译' : '已开启英文字幕，可使用 AI 中文翻译配音' };
     } finally { close(); running = false; }
   }
   globalThis.YouTubeCaptions = { configure, simplified, english, autoTranslate };
